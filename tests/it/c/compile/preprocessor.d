@@ -107,6 +107,34 @@ import it;
 }
 
 
+@("user-defined struct cast in macro")
+@safe unittest {
+    shouldCompile(
+        C(
+            `
+                struct foo { int bar; };
+                #define PTR(st, vr) ((struct st *) &vr)
+                #define PTR_CONST1(st, vr) ((const struct st *) &vr)
+                #define PTR_CONST2(st, vr) ((struct st const *) &vr)
+                #define PTR_CONST3(st, vr) ((struct st * const) &vr)
+            `
+        ),
+        D(
+            q{
+                foo f;
+                auto a = PTR(foo, f);
+                auto b = PTR_CONST1(foo, f);
+
+                // DPP does not currently translate those "macro params"
+                // i.e. leaves "struct foo const *" unchanged
+                // auto c = PTR_CONST2(foo, f);
+                // auto d = PTR_CONST3(foo, f);
+            }
+        )
+    );
+}
+
+
 version(Posix)  // FIXME
 @("multiline")
 @safe unittest {

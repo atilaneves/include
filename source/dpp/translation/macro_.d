@@ -369,8 +369,11 @@ private auto fixCasts(R)(
 
         if( // const type
             tokens.length >= 2
-            && tokens[0] == Token(Token.Kind.Keyword, "const")
-            && isType(tokens[1..$])
+            && ((tokens[0] == Token(Token.Kind.Keyword, "const")
+                    && isType(tokens[1..$]))
+                || (tokens[$-1] == Token(Token.Kind.Keyword, "const")
+                    && isType(tokens[0..$-1]))
+               )
             )
             return true;
 
@@ -380,12 +383,21 @@ private auto fixCasts(R)(
             )
             return true;
 
-        if ( // macro attribute (e.g. __force) + type
+        if( // e.g. (struct foo) var
+            tokens.length == 2
+            && tokens[0] == Token(Token.Kind.Keyword, "struct")
+            && tokens[1].kind == Token.Kind.Identifier
+            // not checking for user defined type (foo might be given as parameter)
+            )
+            return true;
+
+        if( // macro attribute (e.g. __force) + type
             tokens.length >= 2
             && tokens[0].kind == Token.Kind.Identifier
             && isType(tokens[1..$])
             )
             return true;
+
 
         return false;
     }
