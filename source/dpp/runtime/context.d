@@ -28,16 +28,12 @@ struct Context {
 
     alias SeenCursors = bool[CursorId];
 
-    private auto lines(this This)() {
-        return _lines.data;
-    }
-
     /**
        The lines of output so far. This is needed in order to fix
        any name collisions between functions or variables with aggregates
        such as structs, unions and enums.
      */
-    private Appender!(string[]) _lines;
+    private string[] _lines;
 
     /**
        Structs can be anonymous in C, and it's even common
@@ -162,7 +158,7 @@ struct Context {
 
     string translation() @safe pure nothrow const {
         import std.array: join;
-        return lines.join("\n");
+        return _lines.join("\n");
     }
 
     /**
@@ -186,7 +182,7 @@ struct Context {
         const spelling = maybeRename(cursor, this);
         // since linkables produce one-line translations, the next
         // will be the linkable
-        _linkableDeclarations[spelling] = Linkable(lines.length, cursor.mangling);
+        _linkableDeclarations[spelling] = Linkable(_lines.length, cursor.mangling);
 
         return spelling;
     }
@@ -205,7 +201,7 @@ struct Context {
                 // if there's a name clash, fix it
                 auto clashingLinkable = name in _linkableDeclarations;
                 if(clashingLinkable) {
-                    resolveClash(lines[clashingLinkable.lineNumber], name, clashingLinkable.mangling);
+                    resolveClash(_lines[clashingLinkable.lineNumber], name, clashingLinkable.mangling);
                 }
             }
         }
@@ -223,7 +219,7 @@ struct Context {
                                             : spelling;
                 const renamed = rename(actual, this);
                 foreach (lineNumber; lineNumbers) {
-                    lines[lineNumber] = lines[lineNumber]
+                    _lines[lineNumber] = _lines[lineNumber]
                         // Member declaration
                         .replace(" " ~ actual ~ `;`, " " ~ renamed ~ `;`)
                         // Pointer declaration
@@ -296,7 +292,7 @@ struct Context {
        because of elaborated names. We remember them here in case we need to fix them.
      */
     void rememberField(scope const string spelling) @safe pure {
-        _fieldDeclarations[spelling] ~= lines.length;
+        _fieldDeclarations[spelling] ~= _lines.length;
     }
 
     /**
