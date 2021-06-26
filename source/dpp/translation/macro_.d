@@ -437,7 +437,14 @@ private auto fixCasts(R)(
                 && tokens[scanIndex].spelling[0] == '.'
                 ;
 
-            if(isType(tokens[i + 1 .. scanIndex - 1]) && !followedByDot) {
+	    // make sure this is not a function call (look before the open paren)
+	    const isFunctionParam =
+                i > 0
+                && tokens[i - 1].kind == Token.Kind.Identifier;
+
+            if(isType(tokens[i + 1 .. scanIndex - 1])
+                    && !followedByDot
+                    && !isFunctionParam) {
                 middle ~= tokens[lastIndex .. i] ~
                     Token(Token.Kind.Punctuation, "cast(") ~
                     tokens[i + 1 .. scanIndex]; // includes closing paren

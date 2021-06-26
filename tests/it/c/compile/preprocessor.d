@@ -130,3 +130,23 @@ version(Posix)  // FIXME
         )
     );
 }
+
+@("macro function's parameter name is a type")
+@safe unittest {
+    shouldCompile(
+        C(
+            `
+                struct Foo {};
+                void actual_func(struct Foo*);
+                #define func(Foo) actual_func(Foo)
+            `
+        ),
+        D(
+            q{
+	        void actual_func(Foo *) {}
+	        Foo *f;
+		func(f);
+            }
+        )
+    );
+}
