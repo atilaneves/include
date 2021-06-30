@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, windows-latest]
+        os: [ubuntu-20.04, windows-latest, macos-10.15]
         dc:
           - dmd-2.096.1
           - dmd-2.095.0
@@ -17,7 +17,7 @@ jobs:
         arch:
           - x86_64
         clang:
-          - 10
+          - 11.0.0
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -26,12 +26,20 @@ jobs:
         with:
           ruby-version: 3
           bundler-cache: true
-
       # Ruby puts this on the path which breaks ldc
       - name: Rename msys64/link.exe
         if: startsWith(matrix.os,'windows')
         shell: pwsh
         run: mv C:\msys64\usr\bin\link.exe C:\msys64\usr\bin\msys-link.exe
+
+      - name: Cache
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            C:/Program Files/LLVM
+            ./llvm
+          key: cache-os:${{ matrix.os }}-clang:${{ matrix.clang }}
 
       - name: Setup D
         uses: dlang-community/setup-dlang@v1
@@ -42,18 +50,35 @@ jobs:
         if: startsWith(matrix.os,'windows')
         uses: ilammy/msvc-dev-cmd@v1
 
-      # NOTE use KyleMayes/install-llvm-action once https://github.com/KyleMayes/install-llvm-action/pull/11 is merged
       - name: Setup LLVM
-        uses: aminya/install-llvm-action@default-directory
+        uses: KyleMayes/install-llvm-action@v1.4.0
         with:
           version: ${{ matrix.clang }}
+          cached: ${{ steps.cache.outputs.cache-hit }}
 
       - name: Linux - link libclang.so
         if: contains(matrix.os, 'ubuntu')
         run: sudo ln -s libclang-${{ matrix.clang }}.so.1 /lib/x86_64-linux-gnu/libclang.so
         working-directory: ${{ env.LLVM_PATH }}/lib
 
+      - name: MacOS - Prepare LLVM
+        if: contains(matrix.os, 'macos')
+        run: |
+          LLVM_PATH=${{ env.LLVM_PATH }}
+          LLVM_VERSION=${{ matrix.clang }}
+          # already done inside install-llvm-action
+          # echo "PATH="$LLVM_PATH:$PATH"
+          # echo "LD_LIBRARY_PATH=$LLVM_PATH/lib/:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+          # echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib/:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
+          echo "CPATH=$LLVM_PATH/lib/clang/$LLVM_VERSION/include/" >> $GITHUB_ENV
+          echo "LDFLAGS=-L$LLVM_PATH/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$LLVM_PATH/include" >> $GITHUB_ENV
+          echo "CC=$LLVM_PATH/bin/clang" >> $GITHUB_ENV
+          echo "CXX=$LLVM_PATH/bin/clang++" >> $GITHUB_ENV
+
       - name: Run tests
+        continue-on-error: ${{ contains(matrix.os, 'macos') }}
         run: dub test -q --build=unittest-cov --arch=${{ matrix.arch }}
         env:
           LIBRARY_PATH: "${{ env.LLVM_PATH }}/lib"

@@ -241,18 +241,15 @@ private bool isModuleLine(in const(char)[] line) @safe pure {
 private void runCPreProcessor(in string cppPath, in string tmpFileName, in string outputFileName) @safe {
 
     import std.exception: enforce;
-    import std.process: execute, Config;
+    import std.process: execute, executeShell, Config;
     import std.conv: text;
     import std.string: join, splitLines;
     import std.stdio: File;
     import std.algorithm: filter, startsWith;
 
-    version (Windows)
-        enum cppDefault = "clang-cpp";
-    else
-        enum cppDefault = "cpp";
-
-    const cpp = cppPath == "" ? cppDefault : cppPath;
+    const cpp = cppPath == ""
+        ? (executeShell("clang-cpp --version").status == 0 ? "clang-cpp" : "cpp")
+        : cppPath;
 
     const cppArgs = [cpp, "-w", "--comments", tmpFileName];
     const ret = () {
